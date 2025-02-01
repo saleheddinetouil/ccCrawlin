@@ -14,6 +14,7 @@ from datetime import datetime
 import streamlit as st
 import base64
 from pathlib import Path
+import stat
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -40,14 +41,14 @@ persons = {
     }
 }
 # Explicitly set the driver version
-CHROME_DRIVER_VERSION = "114.0.5735.90"  # Version known to work on Streamlit Cloud
 #set path to the driver
 CHROME_DRIVER_PATH = Path("drivers") / "chromedriver"
 
 
 def setup_driver():
     try:
-        
+        # Set execution permissions to the chromedriver
+        CHROME_DRIVER_PATH.chmod(CHROME_DRIVER_PATH.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         options = webdriver.ChromeOptions()
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
@@ -383,6 +384,7 @@ def main():
         finally:
            driver.quit()
            logging.info("ChromeDriver closed.")
+
 
 if __name__ == "__main__":
     main()
