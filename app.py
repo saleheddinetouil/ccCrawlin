@@ -45,7 +45,7 @@ CHROME_DRIVER_VERSION = "114.0.5735.90"  # Version known to work on Streamlit Cl
 def setup_driver():
     try:
        
-        service = Service(executable_path=ChromeDriverManager(version=CHROME_DRIVER_VERSION).install())
+        service = Service(executable_path=ChromeDriverManager().install(driver_version=CHROME_DRIVER_VERSION))
         options = webdriver.ChromeOptions()
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
