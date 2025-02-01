@@ -6,6 +6,7 @@ import json
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import WebDriverException, TimeoutException
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -54,7 +55,15 @@ def setup_driver():
       
         
         # Use the pre-installed chromedriver path
-        service = Service(executable_path="drivers/chromedriver")
+        driver_path = Path("drivers") / "chromedriver"
+        # Set execution permissions to the chromedriver
+        if not os.path.exists(str(driver_path)):
+             logging.info("ChromeDriver is not available, downloading..")
+             driver_path_download = ChromeDriverManager().install()
+             driver_path = Path(driver_path_download)
+
+        driver_path.chmod(driver_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        service = Service(executable_path=str(driver_path))
         driver = webdriver.Chrome(service=service, options=options)
         logging.info("ChromeDriver setup successfully using pre-installed driver.")
         return driver
