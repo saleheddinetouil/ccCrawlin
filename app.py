@@ -54,7 +54,7 @@ def setup_driver():
       
         
         # Use the pre-installed chromedriver path
-        service = Service(executable_path="/usr/bin/chromedriver")
+        service = Service(executable_path="drivers/chromedriver")
         driver = webdriver.Chrome(service=service, options=options)
         logging.info("ChromeDriver setup successfully using pre-installed driver.")
         return driver
