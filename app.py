@@ -38,24 +38,26 @@ persons = {
         "postal": "15041"
     }
 }
+# Explicitly set the driver version
+CHROME_DRIVER_VERSION = "114.0.5735.90"  # Version known to work on Streamlit Cloud
 
 
 def setup_driver():
     try:
-        service = Service(executable_path=ChromeDriverManager().install())
+       
+        service = Service(executable_path=ChromeDriverManager(version=CHROME_DRIVER_VERSION).install())
         options = webdriver.ChromeOptions()
-        # options.add_argument('--proxy-server=socks4://127.0.0.1:9050')
-        # block images loading
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
-        options.add_argument('--headless')
         driver = webdriver.Chrome(service=service, options=options)
         logging.info("ChromeDriver setup successfully with Tor proxy.")
         return driver
     except WebDriverException as e:
         logging.error(f"Error setting up ChromeDriver: {e}")
         return None
-
 
 def load_data(data_file):
   if data_file:
@@ -67,7 +69,6 @@ def load_data(data_file):
            return None
   else:
       return None
-
 
 def load_cc_data(cc_file):
     if cc_file:
@@ -373,6 +374,7 @@ def main():
         finally:
            driver.quit()
            logging.info("ChromeDriver closed.")
+
 
 if __name__ == "__main__":
     main()
