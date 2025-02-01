@@ -15,6 +15,7 @@ import streamlit as st
 import base64
 from pathlib import Path
 import stat
+import tempfile
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -40,26 +41,35 @@ persons = {
         "postal": "15041"
     }
 }
-# Explicitly set the driver version
-#set path to the driver
-CHROME_DRIVER_PATH = Path("drivers") / "chromedriver"
 
 
 def setup_driver():
     try:
-        # Set execution permissions to the chromedriver
-        CHROME_DRIVER_PATH.chmod(CHROME_DRIVER_PATH.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         options = webdriver.ChromeOptions()
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
-
-        service = Service(executable_path=str(CHROME_DRIVER_PATH))
+        
+        
+        
+        driver_path =  Path(tempfile.gettempdir()) / "chromedriver"
+        # Set execution permissions to the chromedriver
+        if os.path.exists(str(driver_path)):
+             driver_path.chmod(driver_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        else:
+            logging.info("ChromeDriver is not available, downloading..")
+            
+            driver_path_download = ChromeDriverManager().install()
+            driver_path = Path(driver_path_download)
+            
+            driver_path.chmod(driver_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+            
+            
+        service = Service(executable_path=str(driver_path))
         driver = webdriver.Chrome(service=service, options=options)
-
-        logging.info("ChromeDriver setup successfully with Tor proxy.")
+        logging.info("ChromeDriver setup successfully.")
         return driver
     except WebDriverException as e:
         logging.error(f"Error setting up ChromeDriver: {e}")
@@ -293,12 +303,11 @@ def download_file(file_path, file_name):
 
 
 def main():
-    st.title("Dynamic Selenium Crawler")
+    st.title("Robust Selenium Crawler")
     config_file = st.file_uploader("Upload Configuration File (config.json)", type=["json"])
     cc_file = st.file_uploader("Upload Credit Card Data (cc.txt)", type=["txt"])
     data_file = st.file_uploader("Upload Data File (data.txt)", type=["txt"])
     url = st.text_input("Enter URL to navigate (optional, else start_url from config is used)")
-
 
     if st.button("Start Crawling"):
         if not config_file:
@@ -307,8 +316,6 @@ def main():
         if not cc_file:
            st.error("Please upload credit card data file.")
            return
-
-
         try:
             config = json.load(config_file)
         except json.JSONDecodeError:
@@ -326,65 +333,65 @@ def main():
         if not cc_data :
            st.error("Please check the credit card data file, it must contain credit cards info")
            return
-        # Ensure driver exists for local usage
-        if not os.path.exists(str(CHROME_DRIVER_PATH)):
-             logging.info("ChromeDriver is not available, downloading..")
-             ChromeDriverManager().install()
-        driver = setup_driver()
-        if not driver:
-            st.error("Failed to set up the webdriver")
-            return
 
+        driver = None
         working_ccs = []
         not_working_ccs = []
-        progress_bar = st.progress(0)
-        num_cards = len(cc_data)
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        valid_file = f"valid-{timestamp}.txt"
+        not_valid_file = f"notWorking-{timestamp}.txt"
+        results_dir = "results"
+        os.makedirs(results_dir, exist_ok=True)
+        valid_path = os.path.join(results_dir,valid_file)
+        not_valid_path = os.path.join(results_dir,not_valid_file)
         try:
-           for i,cc in enumerate(cc_data):
-            driver.get(url)
-            for step in config["steps"]:
-                execute_step(driver, step, persons, [cc], working_ccs)
-            driver.delete_all_cookies()
-            progress_bar.progress((i + 1) / num_cards)
+            with st.spinner("Setting up ChromeDriver..."):
+               driver = setup_driver()
+            if not driver:
+                st.error("Failed to set up the webdriver. Please check logs.")
+                return
+            num_cards = len(cc_data)
+            with st.spinner("Crawling in progress..."):
+                progress_bar = st.progress(0)
+                for i,cc in enumerate(cc_data):
+                   driver.get(url)
+                   for step in config["steps"]:
+                      execute_step(driver, step, persons, [cc], working_ccs)
+                   driver.delete_all_cookies()
+                   progress_bar.progress((i + 1) / num_cards)
+                not_working_ccs = [cc for cc in cc_data if cc not in working_ccs]
 
 
-           not_working_ccs = [cc for cc in cc_data if cc not in working_ccs]
-           timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-           valid_file = f"valid-{timestamp}.txt"
-           not_valid_file = f"notWorking-{timestamp}.txt"
-           results_dir = "results"
-           os.makedirs(results_dir, exist_ok=True)
+                if working_ccs:
+                    with open(valid_path, "w") as f:
+                       f.write("\n".join(working_ccs))
+                    logging.info(f"Working credit cards saved to: {valid_file}")
+                    st.success(f"Working credit cards saved to: {valid_file}")
+                else:
+                     st.warning("No working credit cards found")
 
-           valid_path = os.path.join(results_dir,valid_file)
-           not_valid_path = os.path.join(results_dir,not_valid_file)
-           if working_ccs:
-               with open(valid_path, "w") as f:
-                   f.write("\n".join(working_ccs))
-               logging.info(f"Working credit cards saved to: {valid_file}")
-               st.success(f"Working credit cards saved to: {valid_file}")
-           else:
-               st.warning("No working credit cards found")
+                if not_working_ccs:
+                   with open(not_valid_path, "w") as f:
+                      f.write("\n".join(not_working_ccs))
+                   logging.info(f"Not working credit cards saved to: {not_valid_file}")
+                   st.info(f"Not working credit cards saved to: {not_valid_file}")
+                else:
+                   st.warning("No not working credit cards found")
 
-           if not_working_ccs:
-               with open(not_valid_path, "w") as f:
-                    f.write("\n".join(not_working_ccs))
-               logging.info(f"Not working credit cards saved to: {not_valid_file}")
-               st.info(f"Not working credit cards saved to: {not_valid_file}")
-           else:
-               st.warning("No not working credit cards found")
-
-           st.markdown("### Download results :")
-           if working_ccs:
-            download_file(valid_path,valid_file)
-           if not_working_ccs:
-             download_file(not_valid_path,not_valid_file)
-           st.success("Crawling completed!")
+                st.markdown("### Download results :")
+                if working_ccs:
+                     download_file(valid_path,valid_file)
+                if not_working_ccs:
+                     download_file(not_valid_path,not_valid_file)
+                st.success("Crawling completed!")
         except Exception as e:
-          st.error(f"An error occured : {e}")
-        finally:
-           driver.quit()
-           logging.info("ChromeDriver closed.")
+            st.error(f"An error occurred during the process: {e}")
 
+        finally:
+           if driver:
+              driver.quit()
+              logging.info("ChromeDriver closed.")
+           
 
 if __name__ == "__main__":
     main()
