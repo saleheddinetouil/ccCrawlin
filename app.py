@@ -13,6 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from datetime import datetime
 import streamlit as st
 import base64
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -40,19 +41,23 @@ persons = {
 }
 # Explicitly set the driver version
 CHROME_DRIVER_VERSION = "114.0.5735.90"  # Version known to work on Streamlit Cloud
+#set path to the driver
+CHROME_DRIVER_PATH = Path("drivers") / "chromedriver"
 
 
 def setup_driver():
     try:
-       
-        service = Service(executable_path=ChromeDriverManager().install(driver_version=CHROME_DRIVER_VERSION))
+        
         options = webdriver.ChromeOptions()
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         prefs = {"profile.managed_default_content_settings.images": 2}
         options.add_experimental_option("prefs", prefs)
+
+        service = Service(executable_path=str(CHROME_DRIVER_PATH))
         driver = webdriver.Chrome(service=service, options=options)
+
         logging.info("ChromeDriver setup successfully with Tor proxy.")
         return driver
     except WebDriverException as e:
@@ -320,6 +325,10 @@ def main():
         if not cc_data :
            st.error("Please check the credit card data file, it must contain credit cards info")
            return
+        # Ensure driver exists for local usage
+        if not os.path.exists(str(CHROME_DRIVER_PATH)):
+             logging.info("ChromeDriver is not available, downloading..")
+             ChromeDriverManager().install()
         driver = setup_driver()
         if not driver:
             st.error("Failed to set up the webdriver")
@@ -374,7 +383,6 @@ def main():
         finally:
            driver.quit()
            logging.info("ChromeDriver closed.")
-
 
 if __name__ == "__main__":
     main()
