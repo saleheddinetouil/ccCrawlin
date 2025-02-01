@@ -6,7 +6,6 @@ import json
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.common.exceptions import WebDriverException, TimeoutException
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -16,7 +15,6 @@ import base64
 from pathlib import Path
 import stat
 import tempfile
-
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -43,7 +41,6 @@ persons = {
     }
 }
 
-
 def setup_driver():
     try:
         options = webdriver.ChromeOptions()
@@ -54,18 +51,13 @@ def setup_driver():
         options.add_experimental_option("prefs", prefs)
       
         
-        # Use the pre-installed chromedriver path
+        # Use the bundled chromedriver path
         driver_path = Path("drivers") / "chromedriver"
         # Set execution permissions to the chromedriver
-        if not os.path.exists(str(driver_path)):
-             logging.info("ChromeDriver is not available, downloading..")
-             driver_path_download = ChromeDriverManager().install()
-             driver_path = Path(driver_path_download)
-
         driver_path.chmod(driver_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
         service = Service(executable_path=str(driver_path))
         driver = webdriver.Chrome(service=service, options=options)
-        logging.info("ChromeDriver setup successfully using pre-installed driver.")
+        logging.info("ChromeDriver setup successfully using bundled driver.")
         return driver
     except WebDriverException as e:
         logging.error(f"Error setting up ChromeDriver: {e}")
